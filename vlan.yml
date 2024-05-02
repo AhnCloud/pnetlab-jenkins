@@ -1,0 +1,33 @@
+
+---
+- name: Configure VRFs and VLANs on Arista EOS devices
+  hosts: arista_node
+  gather_facts: no
+  vars:
+    # VRF variables
+    vrf_base_name: "VRF"
+    vrf_base_id: 1
+    vrf_count: 10
+    rd_base: "65000"
+    vrfs: "{{ range(vrf_base_id, vrf_base_id + vrf_count) | map('regex_replace', '^', vrf_base_name) | list }}"
+    rds: "{{ range(vrf_base_id, vrf_base_id + vrf_count) | map('string') | map('regex_replace', '^', rd_base + ':') | list }}"
+
+    # VLAN variables
+    vlan_base_id: 1
+    vlan_count: 10
+    vlans: "{{ range(vlan_base_id, vlan_base_id + vlan_count) | list }}"
+    vlan_descriptions: "{{ range(vlan_base_id, vlan_base_id + vlan_count) | map('regex_replace', '^', 'VLAN_') | list }}"
+
+    # IP variables for interface configuration
+    ip_base_third_octet: 1  # Assuming all interfaces will use 1.1.x.1
+    ips: "{{ range(vlan_base_id, vlan_base_id + vlan_count) | map('regex_replace', '^', '1.1.') | map('regex_replace', '$', '.1/24') | list }}"
+
+  tasks:
+    - name: Configure VLANs
+      arista.eos.eos_config:
+        lines:
+          - "vlan {{ item.0 }}"
+          - "name {{ item.1 }}"
+        parents: ["vlan {{ item.0 }}"]
+        match: exact
+      loop: "{{ vlans | zip(vlan_descriptions) | list }}"
